@@ -19,11 +19,14 @@ import { teal } from '@mui/material/colors';
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import LoginIcon from "@mui/icons-material/Login";
-import { loginUser } from "../../../services/usersServices";
+//import { loginUser } from "../../../services/usersServices";
 import loginValidation from "../../../utils/loginValidation";
-import {  useNavigate } from "react-router-dom";
+//import {  useNavigate } from "react-router-dom";
 import JoinRequest from "./JoinRequest";
 import { typographyStyle } from "../../../style";
+import { useMutation } from "@apollo/client";
+import { LOGIN_USER as LOGIN_USER_MUTATION } from "../../../services/users.graphql";
+import { useNavigate } from "react-router-dom";
 
 const theme = createTheme({
   typography: typographyStyle
@@ -35,10 +38,9 @@ const Login = () => {
   const [emailInput, setEmailInput] = useState<string>("");
   const [passwordInput, setPasswordInput] = useState<string>("");
   const [formValid, setFormValid] = useState<null | string>();
-  const [success, setSuccess] = useState<null | string>();
-  const [loading, setLoading] = useState<boolean>(false);
   const [timeoutId, setTimeoutId] = useState<number | null>(null);
   const [openJoinRequest, setOpenJoinRequest] = useState(false);
+  const [loginUserMutation, { loading, error, data }] = useMutation(LOGIN_USER_MUTATION);
   const closeSendPopUp = () => {
     setOpenJoinRequest(false);
   };
@@ -51,7 +53,6 @@ const Login = () => {
   };
 
   const handleSubmit = async () => {
-    setSuccess(null);
     const { error } = loginValidation({
       email: emailInput,
       password: passwordInput,
@@ -61,25 +62,9 @@ const Login = () => {
       return;
     }
     setFormValid(null);
-    setLoading(true)
-    const resFromLogin = await loginUser({
-      email: emailInput,
-      password: passwordInput,
-    });
-    if (typeof resFromLogin === 'string') {
-      localStorage.setItem("access_token", resFromLogin);
-      setLoading(false)
-      setSuccess("you are connected");
-      const id = setTimeout(async () => {
-        Navigate('/oms/orders/dashboard')
-      }, 1500);
-      setTimeoutId(Number(id))
-    }
-    else {
-      setLoading(false)
-      setFormValid(resFromLogin?.data || 'oops something get wrong try again');
-    }
+    await loginUserMutation({variables: {email:emailInput, password: passwordInput}});
   };
+  
   useEffect(() => {
     return () => {
       if (timeoutId) {
@@ -87,7 +72,18 @@ const Login = () => {
       }
     };
   }, [timeoutId]);
-
+  useEffect(() => {
+    // data ? setSuccess("you are connected"): setSuccess(null)
+    // error ? setFormValid(error.message) : setFormValid(null)
+    // loading ? setLoading(true) : setLoading(false)
+    if (data)  {
+      localStorage.setItem("access_token", data.loginUser.access_token);
+      const id = setTimeout(async () => {
+           Navigate('/oms/orders/dashboard')
+         }, 1500);
+         setTimeoutId(Number(id))
+        }
+  }, [data,error, loading]);
   return (
 
     <ThemeProvider theme={theme}>
@@ -174,15 +170,20 @@ const Login = () => {
                     <Alert severity="error">{formValid}</Alert>
                   </Stack>
                 )}
+                {error && (
+                  <Stack sx={{ width: "100%" }} spacing={2}>
+                    <Alert severity="error">{error.message}</Alert>
+                  </Stack>
+                )}
                 {loading && (
                   <Stack sx={{ width: "100%", alignItems: 'center' }} spacing={2}>
                     <CircularProgress />
                   </Stack>
                 )}
 
-                {success && (
+                {data && (
                   <Stack sx={{ width: "100%" }} spacing={2}>
-                    <Alert severity="success">{success}</Alert>
+                    <Alert severity="success">you connected successfully</Alert>
                   </Stack>
                 )}
               </Stack>
@@ -200,6 +201,6 @@ const Login = () => {
       </Box>
     </ThemeProvider>
   );
-};
+          }
 
 export default Login;

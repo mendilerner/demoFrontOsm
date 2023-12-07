@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import TableHeader from "../../../../components/pages/dashboard/TableHeader";
 
 describe("Table", () => {
-  test("FILTERS", () => {
+  test("STATUS", () => {
     render(<TableHeader />);
     
     const status = screen.getByText(/Status/i);

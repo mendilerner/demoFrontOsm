@@ -22,9 +22,10 @@ import CloseIcon from "@mui/icons-material/Close";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import registerValidation from "../../../utils/registerValidation";
-import { registerUser } from "../../../services/usersServices";
 import { typographyStyle } from "../../../style";
 import { SignUpProps } from "../../../interfaces/propsInterfaces";
+import { useMutation } from "@apollo/client";
+import { ADD_USER_MUTATION } from "../../../services/users.graphql";
 
 const theme = createTheme({
   typography: typographyStyle
@@ -38,9 +39,8 @@ const SignUp = ({ open, handleClose }: SignUpProps) => {
   const [passwordInput, setPasswordInput] = useState<string>("");
   const [confirmPassInput, setConfirmPassInput] = useState<string>("");
   const [formValid, setFormValid] = useState<null | string>();
-  const [success, setSuccess] = useState<null | string>();
-  const [loading, setLoading] = useState<boolean>(false);
   const [timeoutId, setTimeoutId] = useState<number | null>(null);
+  const [addUserMutation, { loading, error: _error, data }] = useMutation(ADD_USER_MUTATION);
   useEffect(() => {
     return () => {
       if (timeoutId) {
@@ -48,6 +48,17 @@ const SignUp = ({ open, handleClose }: SignUpProps) => {
       }
     };
   }, [timeoutId]);
+  useEffect(() => {
+    if (data) {
+      const id = setTimeout(async () => {
+             handleClose();
+           }, 2000);
+      setTimeoutId(Number(id));
+    }
+    else if (_error) {
+      Navigate('/oms/orders/login?notLoginPopup=true')
+    }
+  },[data,_error])
   const handleClickShowPassword = () => setShowPassword((show) => !show);
   const handleMouseDownPassword = (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>
@@ -55,7 +66,6 @@ const SignUp = ({ open, handleClose }: SignUpProps) => {
     event.preventDefault();
   };
   const handleSubmit = async () => {
-    setSuccess(null);
     const { error } = registerValidation({
       userName: userNameInput,
       email: emailInput,
@@ -71,29 +81,8 @@ const SignUp = ({ open, handleClose }: SignUpProps) => {
       return;
     }
     setFormValid(null);
-    setLoading(true);
-    const response = await registerUser({
-      userName: userNameInput,
-      email: emailInput,
-      password: passwordInput,
-      isAdmin: true,
-    });
-    if (response?.status === 200) {
-      setLoading(false);
-      setSuccess("user added successfully");
-      const id = setTimeout(async () => {
-        handleClose();
-      }, 1500);
-      setTimeoutId(Number(id));
-    } else if (response?.status === 401) {
-      Navigate("/oms/orders/login/?notLoginPopup=true");
-      localStorage.removeItem("access_token");
-    } else {
-      setLoading(false);
-      setFormValid(response?.data || "oops... something get wrong try again");
-    }
+    await addUserMutation({variables:{userName: userNameInput, email: emailInput, password: passwordInput, isAdmin: true}})  
   };
-
   return (
     <ThemeProvider theme={theme}>
       <Dialog open={open} onClose={handleClose} fullWidth>
@@ -180,6 +169,11 @@ const SignUp = ({ open, handleClose }: SignUpProps) => {
                   <Alert severity="error">{formValid}</Alert>
                 </Stack>
               )}
+              {_error && (
+                <Stack sx={{ width: "100%", paddingTop: "10px" }} spacing={2}>
+                  <Alert severity="error">{_error.message}</Alert>
+                </Stack>
+              )}
               {loading && (
                 <Stack
                   sx={{
@@ -193,9 +187,9 @@ const SignUp = ({ open, handleClose }: SignUpProps) => {
                 </Stack>
               )}
 
-              {success && (
+              {data && !_error && !formValid &&(
                 <Stack sx={{ width: "100%", paddingTop: "10px" }} spacing={2}>
-                  <Alert severity="success">{success}</Alert>
+                  <Alert severity="success">user added successfully</Alert>
                 </Stack>
               )}
             </FormControl>
